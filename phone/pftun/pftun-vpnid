@@ -1,0 +1,103 @@
+#!/var/jb/usr/bin/python3
+# Prints the UUID of the VPN configuration (from the NetworkExtension preferences) that belongs to a
+# packet-tunnel extension, so pftun can restart that VPN after a jetsam kill.
+#
+#   pftun-vpnid <path of the extension executable>    # .../Foo.app/PlugIns/Bar.appex/Bar
+#   pftun-vpnid --list                                # every VPN configuration found, for debugging
+#
+# The extension's bundle identifier is read from the Info.plist next to its executable and matched
+# against the strings stored in each configuration (the provider bundle identifier). If nothing
+# matches and there is exactly one packet-tunnel configuration, that one is used.
+import os, plistlib, sys, uuid
+
+PREFS = '/var/preferences/com.apple.networkextension.plist'
+
+
+def resolve(objs, v, depth=0):
+    """Turn an NSKeyedArchiver object graph node into plain Python values."""
+    if depth > 40:
+        return None
+    if isinstance(v, plistlib.UID):
+        return resolve(objs, objs[v.data], depth + 1)
+    if isinstance(v, dict):
+        if 'NS.keys' in v and 'NS.objects' in v:
+            return {resolve(objs, k, depth + 1): resolve(objs, o, depth + 1) for k, o in zip(v['NS.keys'], v['NS.objects'])}
+        if 'NS.objects' in v:
+            return [resolve(objs, o, depth + 1) for o in v['NS.objects']]
+        if 'NS.uuidbytes' in v:
+            return str(uuid.UUID(bytes=v['NS.uuidbytes']))
+        return {k: resolve(objs, o, depth + 1) for k, o in v.items() if k != '$class'}
+    if isinstance(v, list):
+        return [resolve(objs, o, depth + 1) for o in v]
+    return v
+
+
+def walk(v):
+    if isinstance(v, dict):
+        yield v
+        for o in v.values():
+            yield from walk(o)
+    elif isinstance(v, list):
+        for o in v:
+            yield from walk(o)
+
+
+def strings(v):
+    if isinstance(v, str):
+        yield v
+    elif isinstance(v, dict):
+        for k, o in v.items():
+            yield from strings(k)
+            yield from strings(o)
+    elif isinstance(v, list):
+        for o in v:
+            yield from strings(o)
+
+
+def has_key(v, needle):
+    return any(isinstance(d, dict) and any(isinstance(k, str) and needle in k.lower() for k in d) for d in walk(v))
+
+
+def configs():
+    with open(PREFS, 'rb') as f:
+        arc = plistlib.load(f)
+    root = resolve(arc['$objects'], arc['$top']['root'])
+    seen, out = set(), []
+    for d in walk(root):
+        ident = d.get('Identifier')
+        if isinstance(ident, str) and ident not in seen and has_key(d, 'providerbundleidentifier'):
+            try:
+                uuid.UUID(ident)
+            except ValueError:
+                continue
+            seen.add(ident)
+            out.append((ident, d.get('Name') or '', set(strings(d))))
+    return out
+
+
+def bundle_id(exe):
+    try:
+        with open(os.path.join(os.path.dirname(exe), 'Info.plist'), 'rb') as f:
+            return plistlib.load(f).get('CFBundleIdentifier')
+    except Exception:
+        return None
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit('usage: pftun-vpnid <extension executable path> | --list')
+    cs = configs()
+    if sys.argv[1] == '--list':
+        for ident, name, strs in cs:
+            print(ident, name)
+        return
+    bid = bundle_id(sys.argv[1])
+    hit = [c for c in cs if bid and bid in c[2]]
+    if not hit and len(cs) == 1:
+        hit = cs
+    if len(hit) != 1:
+        sys.exit(1)
+    print(hit[0][0])
+
+
+main()

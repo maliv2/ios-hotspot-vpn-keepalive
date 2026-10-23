@@ -1,0 +1,8 @@
+*.ipa
+*.plist
+!phone/launchd/*.plist
+env
+*.pem
+*.pub
+id_*
+__pycache__/
