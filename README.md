@@ -63,7 +63,7 @@ All commands marked *phone* run as root on the phone over SSH; *computer* comman
    ```sh
    cd /var/mobile/hotspot-vpn && ./install.sh
    ```
-   This installs Python 3 if needed, copies the scripts to `/var/jb/usr/local/bin`, installs the launch daemon `org.hotspotvpn.keepawake` and starts it. Logs: `/var/jb/var/log/keepawake.log`, `socksd.log`, `hshold.log`.
+   This installs Python 3 if needed, copies the scripts to `/var/jb/usr/local/bin`, installs the launch daemon `com.mali.keepawake` and starts it. Logs: `/var/jb/var/log/keepawake.log`, `socksd.log`, `hshold.log`.
 3. **VPN sharing (optional)**:
    - Build pftun (*computer*; needs SSH key access to the phone, `KEY=<private key>` selects a key):
      ```sh
@@ -82,7 +82,7 @@ All commands marked *phone* run as root on the phone over SSH; *computer* comman
 
 Defaults work without any configuration. Overrides:
 
-**pftun** (arguments after `run` in `/var/jb/Library/LaunchDaemons/org.hotspotvpn.pftun.plist`; each flag and its value are separate `<string>` entries; reload with `launchctl unload` / `load -w`):
+**pftun** (arguments after `run` in `/var/jb/Library/LaunchDaemons/com.mali.pftun.plist`; each flag and its value are separate `<string>` entries; reload with `launchctl unload` / `load -w`):
 
 | Flag | Meaning | Default |
 | --- | --- | --- |
@@ -110,7 +110,7 @@ On the phone:
 ```sh
 cd /var/mobile/hotspot-vpn && ./uninstall.sh
 ```
-This unloads and removes both daemons and the scripts and runs `pftun del` (removes the pf rules and clears client states). To disable only VPN sharing: `launchctl unload -w /var/jb/Library/LaunchDaemons/org.hotspotvpn.pftun.plist; /var/jb/usr/local/bin/pftun del`. The hotspot then uses the cellular connection directly, as before. If the daemon was killed uncleanly, rebooting also clears the pf rules (they live only in the kernel).
+This unloads and removes both daemons and the scripts and runs `pftun del` (removes the pf rules and clears client states). To disable only VPN sharing: `launchctl unload -w /var/jb/Library/LaunchDaemons/com.mali.pftun.plist; /var/jb/usr/local/bin/pftun del`. The hotspot then uses the cellular connection directly, as before. If the daemon was killed uncleanly, rebooting also clears the pf rules (they live only in the kernel).
 
 ## Troubleshooting
 

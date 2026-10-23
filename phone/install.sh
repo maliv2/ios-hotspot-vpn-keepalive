@@ -25,7 +25,7 @@ if [ "$1" = "--pftun" ]; then
 fi
 
 for n in $daemons; do
-    L=org.hotspotvpn.$n
+    L=com.mali.$n
     cp $D/launchd/$L.plist $LD/$L.plist
     chown root:wheel $LD/$L.plist; chmod 644 $LD/$L.plist
     launchctl unload $LD/$L.plist 2>/dev/null || true

@@ -5,8 +5,8 @@ BIN=$J/usr/local/bin
 LD=$J/Library/LaunchDaemons
 export PATH=$J/usr/bin:$J/usr/sbin:$J/bin:$J/sbin:$PATH
 for n in pftun keepawake; do
-    launchctl unload -w $LD/org.hotspotvpn.$n.plist 2>/dev/null
-    rm -f $LD/org.hotspotvpn.$n.plist
+    launchctl unload -w $LD/com.mali.$n.plist 2>/dev/null
+    rm -f $LD/com.mali.$n.plist
 done
 [ -x $BIN/pftun ] && $BIN/pftun del
 rm -f $BIN/pftun $BIN/pftun-vpnid $BIN/hotspot.py $BIN/keepawake.py $BIN/socksd.py $BIN/hshold.py

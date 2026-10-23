@@ -17,7 +17,7 @@ return: vpn utun -> pf reverses the nat -> the kernel forwards to bridge100 (iOS
 - `pftun run` (daemon): once a second it finds the hotspot bridge (`bridge100`, subnet from the interface address and netmask) and the VPN utun (a `utun*` with an IPv4 address that is neither link-local `169.254/16` nor in `198.18/15`; `-i` overrides). If the rules are missing it adds them, then deletes old pf states from the hotspot subnet (`DIOCKILLSTATES`) so open connections move to the new path. iOS removes the rules from time to time, so they are re-added. When the VPN or hotspot goes away the rules are removed. Every 60 s it logs `pkts= bytes= bad= big= senderr=`. If the hotspot subnet changes the rules are reinstalled.
 - `pftun del`: removes the rules and states.
 - The rules are added to the anchor `com.apple.internet-sharing` (root -> `com.apple.internet-sharing` -> `base_v4`). The nat port range is 50001-65535, which does not overlap the 32768-49151 range used by `base_v4`.
-- The daemon is `/var/jb/usr/local/bin/pftun run` with the launchd plist `org.hotspotvpn.pftun`; log `/var/jb/var/log/pftun.log`. launchd's jetsam limit for it is 6 MB; it uses about 1.4 MB.
+- The daemon is `/var/jb/usr/local/bin/pftun run` with the launchd plist `com.mali.pftun`; log `/var/jb/var/log/pftun.log`. launchd's jetsam limit for it is 6 MB; it uses about 1.4 MB.
 
 ## Why so roundabout: kernel panic
 
@@ -65,7 +65,7 @@ Measuring tools (not in this repository): `memorystatus_control(GET_MEMLIMIT_PRO
 Install: `phone/install.sh --pftun` from the top-level instructions. By hand (on the phone, in `/var/mobile/pfb`):
 ```
 cp pftun /var/jb/usr/local/bin/pftun
-P=/var/jb/Library/LaunchDaemons/org.hotspotvpn.pftun.plist; cp org.hotspotvpn.pftun.plist $P; chown root:wheel $P; chmod 644 $P
+P=/var/jb/Library/LaunchDaemons/com.mali.pftun.plist; cp com.mali.pftun.plist $P; chown root:wheel $P; chmod 644 $P
 launchctl load -w $P
 ```
 Rollback: `launchctl unload -w $P; rm $P; /var/jb/usr/local/bin/pftun del`.
