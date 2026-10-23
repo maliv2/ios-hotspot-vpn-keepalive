@@ -16,6 +16,20 @@ IOK.IOPMAssertionRelease.argtypes = [ctypes.c_uint32]
 IOK.IOPSCopyPowerSourcesInfo.restype = ctypes.c_void_p
 IOK.IOPSGetProvidingPowerSourceType.restype = ctypes.c_void_p
 IOK.IOPSGetProvidingPowerSourceType.argtypes = [ctypes.c_void_p]
+LIBC = ctypes.CDLL(None)
+LIBC.memorystatus_control.argtypes = [ctypes.c_uint32, ctypes.c_int32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_size_t]
+
+# launchd gives /var/jb daemons a 6 MB jetsam limit (JetsamProperties in the plist is ignored);
+# python3 + ctypes does not fit and was SIGKILLed every few minutes, taking the children (socksd, hshold) with it.
+LIMIT_MB = 32
+
+def raise_limit():
+    lim = (ctypes.c_int32 * 4)()
+    if LIBC.memorystatus_control(8, os.getpid(), 0, lim, ctypes.sizeof(lim)) == 0 and lim[0] >= LIMIT_MB:
+        return
+    new = (ctypes.c_int32 * 4)(LIMIT_MB, 1, LIMIT_MB, 1)  # GET/SET_MEMLIMIT_PROPERTIES, fatal
+    r = LIBC.memorystatus_control(7, os.getpid(), 0, new, ctypes.sizeof(new))
+    log('memory limit %s -> %s MB r=%s' % (lim[0], LIMIT_MB, r))
 
 def cfs(s):
     return CF.CFStringCreateWithCString(None, s.encode(), 0x08000100)
@@ -26,10 +40,13 @@ def log(m):
 def on_ac():
     try:
         info = IOK.IOPSCopyPowerSourcesInfo()
-        t = IOK.IOPSGetProvidingPowerSourceType(info)
-        buf = ctypes.create_string_buffer(64)
-        CF.CFStringGetCString(t, buf, 64, 0x08000100)
-        return buf.value.decode() == 'AC Power'
+        try:
+            t = IOK.IOPSGetProvidingPowerSourceType(info)
+            buf = ctypes.create_string_buffer(64)
+            CF.CFStringGetCString(t, buf, 64, 0x08000100)
+            return buf.value.decode() == 'AC Power'
+        finally:
+            CF.CFRelease(info)
     except Exception as e:
         log('power source check failed: %r' % e)
         return True
@@ -68,6 +85,7 @@ def supervise():
 
 log('start')
 while True:
+    raise_limit()
     supervise()
     ac = on_ac() and not NO_AC
     hs = hotspot.exists()

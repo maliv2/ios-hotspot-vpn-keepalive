@@ -9,7 +9,7 @@ import hotspot
 PORT = 62078
 INTERVAL = 30      # seconds between QueryType requests
 TIMEOUT = 60       # a locked client in power saving can answer late
-REFUSED_BACKOFF = 300
+REFUSED_BACKOFF = 30  # a freshly joined iPhone can open 62078 a few seconds late; a long backoff delayed the hold by minutes
 REQ = plistlib.dumps({'Label': 'hshold', 'Request': 'QueryType'})
 ARP = re.compile(r'\((\d+\.\d+\.\d+\.\d+)\) at ([0-9a-f:]+) on ' + re.escape(hotspot.IFACE))
 
