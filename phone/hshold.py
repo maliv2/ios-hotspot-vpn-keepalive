@@ -7,7 +7,8 @@ import plistlib, re, socket, struct, subprocess, threading, time
 import hotspot
 
 PORT = 62078
-INTERVAL = 30      # seconds between QueryType requests
+INTERVAL = 10      # seconds between QueryType requests; at 30 s the connection timed out every 20-130 min
+KEEPIDLE = 10      # also send TCP keepalives between requests (Darwin TCP_KEEPALIVE)
 TIMEOUT = 60       # a locked client in power saving can answer late
 REFUSED_BACKOFF = 30  # a freshly joined iPhone can open 62078 a few seconds late; a long backoff delayed the hold by minutes
 REQ = plistlib.dumps({'Label': 'hshold', 'Request': 'QueryType'})
@@ -45,6 +46,8 @@ def hold(ip):
     start = time.time()
     try:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        s.setsockopt(socket.IPPROTO_TCP, getattr(socket, 'TCP_KEEPALIVE', 0x10), KEEPIDLE)
+        s.setsockopt(socket.IPPROTO_TCP, getattr(socket, 'TCP_KEEPINTVL', 0x101), KEEPIDLE)
         s.settimeout(TIMEOUT)
         if query(s).get('Type') != 'com.apple.mobile.lockdown':
             backoff[ip] = time.time() + REFUSED_BACKOFF

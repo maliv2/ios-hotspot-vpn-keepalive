@@ -14,7 +14,7 @@ Everything runs on the phone as small launch daemons. Nothing is needed on the c
 | Part | File | What it does |
 | --- | --- | --- |
 | keepawake | `phone/keepawake.py` | Holds power assertions (no idle/system sleep) while on AC power or while the hotspot interface exists. Supervises the two helpers below. |
-| hshold | `phone/hshold.py` | Keeps a TCP connection open to every hotspot client's lockdownd (port 62078) and sends a query every 30 s, so a locked client stays on the hotspot. |
+| hshold | `phone/hshold.py` | Keeps a TCP connection open to every hotspot client's lockdownd (port 62078) and sends a query every 10 s, so a locked client stays on the hotspot. |
 | pftun | `phone/pftun/pftun.c` | Routes hotspot client traffic into the VPN tunnel via `pf`, restarts the VPN if iOS kills it for using too much memory, raises its memory limit and throttles uploads near it. |
 | pftun-vpnid | `phone/pftun/pftun-vpnid` | Finds the configuration UUID of the running VPN (used by pftun to restart it). |
 | socksd | `phone/socksd.py` | Optional SOCKS5 + HTTP proxy for hotspot clients (egress from the phone, so through its VPN). Only needed if you do not use pftun. |
@@ -42,7 +42,7 @@ Everything runs on the phone as small launch daemons. Nothing is needed on the c
 - **Automatic on/off.** pftun checks once a second. If the hotspot or the VPN is gone it removes its rules and the hotspot falls back to the normal cellular path, with no reconfiguration. When both are up again it installs the rules and clears old pf states so existing connections move to the VPN.
 - **Detection, not configuration.** The hotspot interface is `bridge100` (iOS); its subnet is read from the interface. The VPN tunnel is the `utun` that has a private IPv4 address (link-local `169.254/16` and `198.18/15` are ignored). The VPN's packet-tunnel extension is the `.appex` process that holds a utun control socket; the VPN configuration UUID is looked up in `/var/preferences/com.apple.networkextension.plist`.
 - **VPN extension protection.** iOS kills a packet-tunnel extension that exceeds its memory limit (50 MB on the tested device) and does not reconnect On Demand VPNs while the screen is locked. pftun raises that process's jetsam limit (default 128 MB), watches its memory, throttles client *uploads* above 80% of the limit (full drop at 86%) so client TCP backs off, and, if the extension is killed by jetsam anyway, restarts the VPN through `nesessionmanager` within ~10 s. A VPN you stopped yourself is not restarted.
-- **Locked clients (hshold).** An iOS client leaves the hotspot about a second after its screen locks unless something keeps an active Wi-Fi connection to it. hshold finds clients in the hotspot's ARP table, opens a TCP connection to each client's lockdownd and sends a `QueryType` request every 30 s.
+- **Locked clients (hshold).** An iOS client leaves the hotspot about a second after its screen locks unless something keeps an active Wi-Fi connection to it. hshold finds clients in the hotspot's ARP table, opens a TCP connection to each client's lockdownd and sends a `QueryType` request every 10 s, with TCP keepalives every 10 s in between. With a 30 s interval the connection to a locked client timed out every 20-130 minutes; hshold then reconnects.
 
 ## Requirements
 
@@ -140,7 +140,7 @@ Everything here was developed and run on this one setup only:
 - VPN: Hiddify (sing-box TUN, `mixed` stack).
 - Hotspot client: iPhone 14 Pro Max on iOS 27 (screen-lock hold verified for 6 minutes on battery; incoming Continuity calls arrive instantly while locked).
 
-The generalizations below were written afterwards **and have not been run on a device**, so treat them as untested: detecting the hotspot subnet from the interface (the tested subnet was `172.20.10.0/28`), detecting the VPN extension and configuration UUID automatically (the tested setup passed them by hand), the command-line flags, `install.sh` / `uninstall.sh` and the `KEEPAWAKE_*` / `SOCKSD_*` / `HOTSPOT_IF` settings. The keepawake memory-limit raise (`memorystatus_control`) and the 30 s hshold retry were run on the device in their original form; the ported versions here were not. The C changes were also not compiled before publishing (the compiler lives on the phone). Other devices, iOS versions, jailbreaks and VPN apps are untested.
+The generalizations below were written afterwards **and have not been run on a device**, so treat them as untested: detecting the hotspot subnet from the interface (the tested subnet was `172.20.10.0/28`), detecting the VPN extension and configuration UUID automatically (the tested setup passed them by hand), the command-line flags, `install.sh` / `uninstall.sh` and the `KEEPAWAKE_*` / `SOCKSD_*` / `HOTSPOT_IF` settings. The keepawake memory-limit raise (`memorystatus_control`) and the 30 s hshold retry were run on the device in their original form; the ported versions here were not. The 10 s hshold query interval with TCP keepalive is running on the device in its original form but has not yet been observed for hours; the ported version has not been run. The C changes were also not compiled before publishing (the compiler lives on the phone). Other devices, iOS versions, jailbreaks and VPN apps are untested.
 
 ## License
 
